@@ -1021,6 +1021,7 @@ test("default core patch descriptors are grouped and unique", () => {
     "linux-bundled-plugin-copy-permissions",
     "linux-browser-use-socket-directory",
     "linux-browser-use-route-liveness",
+    "linux-fetch-auth-surface-headers",
     "linux-notification-actions",
     "linux-local-app-server-feature-enablement-handler",
     "linux-remote-control-config-preservation",
