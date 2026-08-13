@@ -42,14 +42,14 @@
         };
         runtimeLibraries = with pkgs; [
           alsa-lib atk at-spi2-atk at-spi2-core cairo cups dbus expat
-          gdk-pixbuf glib graphite2 gtk3 libdrm libgbm libnotify libusb1 libxkbcommon
-          mesa nspr nss openssl pango systemd stdenv.cc.cc.lib wayland xz
+          gdk-pixbuf glib graphite2 gtk3 libdrm libgbm libglvnd libnotify libusb1
+          libxkbcommon mesa nspr nss openssl pango systemd stdenv.cc.cc.lib wayland xz
           libX11 libXcomposite libXdamage libXext libXfixes libXrandr
           libxcb libxcrypt-legacy zlib
         ];
         runtimeLibraryPath = lib.makeLibraryPath runtimeLibraries;
         runtimePath = lib.makeBinPath (with pkgs; [
-          bash coreutils findutils gnugrep gnused nodejs python3 systemd xdg-utils
+          bash coreutils findutils gnugrep gnused nodejs python3 systemd util-linux xdg-utils
         ]);
         emptyFeaturesConfig = pkgs.writeText "empty-features.json" ''{"enabled":[]}'';
 
@@ -152,7 +152,8 @@
                 --replace-fail "/usr/share/applications/codex-desktop.desktop" "$out/share/applications/codex-desktop.desktop"
               makeWrapper "$app/start.sh" "$out/bin/codex-desktop" \
                 --prefix PATH : "${runtimePath}" \
-                --prefix LD_LIBRARY_PATH : "${runtimeLibraryPath}"
+                --prefix LD_LIBRARY_PATH : "${runtimeLibraryPath}" \
+                --add-flags "\''${NIXOS_OZONE_WL:+\''${WAYLAND_DISPLAY:+--ozone-platform=wayland --enable-wayland-ime=true --wayland-text-input-version=3}}"
               runHook postInstall
             '';
             passthru = {

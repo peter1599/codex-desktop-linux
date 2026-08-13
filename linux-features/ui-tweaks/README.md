@@ -17,6 +17,7 @@ Enable it in the local, gitignored feature config:
 
 | Tweak | Patch module | What it does | Settings |
 | --- | --- | --- | --- |
+| `appearance.dockIcon` | `patches/dock-icon.js` | Exposes the upstream Dock icon selector and synchronizes the selected icon across Linux windows, tray, and supported desktop launchers. | `tweaks.appearance.dockIcon.enabled` |
 | `home.suggestedPrompts` | `patches/suggested-prompts.js` | Exposes the upstream Suggested Prompts setting and enables generated project-aware cards on Home. | `tweaks.home.suggestedPrompts.enabled` |
 | `modelPicker.showModelsByDefault` | `patches/model-picker-model-list.js` | Opens the advanced picker by default and shows model choices inline instead of hiding them behind the compact Power slider and a nested Model submenu. | `tweaks.modelPicker.showModelsByDefault.enabled` |
 | `reasoning.keepEffortLabelsEnglish` | `patches/reasoning-effort-labels.js` | Keeps reasoning effort values in English in the Simplified Chinese UI while leaving the surrounding interface translated. | `tweaks.reasoning.keepEffortLabelsEnglish.enabled` |
@@ -48,6 +49,59 @@ Example local config:
 ```
 
 Each tweak documents its own config keys below.
+
+### `appearance.dockIcon`
+
+Exposes the upstream Appearance row on Linux and applies the selection to
+existing and newly registered windows, the official Linux tray, and a managed
+user-local desktop entry. The ChatGPT choice uses `icon-chatgpt.png` from the
+signed official Linux package. The alternate choice uses the existing ChatGPT
+Community package icon; retired macOS DMG icon resources are not imported.
+
+Staging validates the official package's `chatgpt.desktop` identity before it
+copies the ChatGPT icon. Missing or changed package resources reject the
+candidate so an enabled Dock tweak cannot be installed without its runtime
+payload. The desktop helper writes only a full-state-hash-owned launcher derived
+from an identity-matching packaged entry. AppImage launch commands are rewritten
+to the persistent AppImage path instead of the temporary mounted `AppRun`.
+The prelaunch hook removes only an unchanged managed override after the nested
+tweak is disabled. Desktop entries carry a full-content digest, while icon files
+use content-addressed names whose digest must match their bytes. Any user edit or
+pre-existing conflicting icon is preserved, and interrupted sync or cleanup can
+resume without a separate ownership sidecar. A per-app lock serializes runtime
+updates, and later runs remove only digest-verified orphan icons from the three
+feature-owned selection namespaces.
+
+This tweak is independently disabled by default:
+
+```json
+{
+  "enabled": ["ui-tweaks"],
+  "settings": {
+    "ui-tweaks": {
+      "tweaks": {
+        "appearance": {
+          "dockIcon": {
+            "enabled": true
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+Config keys:
+
+- `enabled`: `true` applies the two current official-package Dock descriptors
+  and stages their resources. `false` leaves official Linux behavior unchanged.
+
+To remove `ui-tweaks` after using a custom Dock icon, first keep the feature
+enabled, set `appearance.dockIcon.enabled` to `false`, rebuild and install, and
+launch the app once. That launch lets the marker-safe prelaunch hook remove its
+managed desktop override and icons. The feature can then be removed from the
+next rebuild. Removing `ui-tweaks` directly does not run feature-owned local
+cleanup, by design.
 
 ### `home.suggestedPrompts`
 
@@ -147,11 +201,12 @@ Config keys:
 
 ## Drift Behavior
 
-The patches are fail-soft. If upstream bundle markers drift, the feature writes
-a `WARN` message and leaves the asset unchanged. The patch report exposes that
-warning, and acceptance rejects a candidate when the enabled feature has drifted.
-Missing Dock icon resources also warn, remove only the Dock icon payload, and do
-not abort staging. Suggested Prompts validates every current insertion point
+The ASAR patches are fail-soft. If upstream bundle markers drift, the feature
+writes a `WARN` message and leaves the asset unchanged. The patch report exposes
+that warning, and acceptance rejects a candidate when the enabled feature has
+drifted. Missing Dock icon package resources or metadata fail the stage hook,
+remove only the incomplete Dock icon payload, and reject candidate promotion.
+Suggested Prompts validates every current insertion point
 before changing an asset and leaves mixed or drifted input byte-identical.
 Invalid style values warn and fall back to the default bold style.
 
