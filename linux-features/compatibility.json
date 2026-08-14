@@ -4,7 +4,6 @@
   },
   "retired": [
     "codex-wrapper-updater",
-    "conversation-delete",
     "conversation-mode",
     "deferred-update-build",
     "example-feature",
