@@ -36,6 +36,12 @@ const COMPOSER_CONTROLLER_FIXTURE = [
 	'function renderAssistant(u){if(u.type===`assistant-message`){let i;return t[64]!==r||t[65]!==g||t[66]!==n?(i=(0,dw.jsxs)(`div`,{ref:r,"data-content-search-unit-key":g,children:[e,n]}),t[64]=r,t[65]=g,t[66]=n,t[67]=i):i=t[67],i}}',
 ].join("");
 
+const MODERN_COMPOSER_CONTROLLER_FIXTURE = [
+	"function renderAssistantActions(){return (0,Cw.jsx)(Ac,{alwaysShowActions:x,turnId:S,copyText:C,getCopyHtml:f,forkDisabled:w,forkLabel:T,isForking:E,sentAtMs:n.sentAtMs,threadId:c,hasArtifacts:o,additionalActions:D,onFork:O})}",
+	"function renderUser(){return (0,Cw.jsx)(rc,{message:d.message,sentAtMs:d.sentAtMs,hasExternalAttachments:C,hostId:l,onEditMessage:m,threadId:p,turnId:y})}",
+	'function renderAssistantItem(d){if(d.type===`assistant-message`){let e,r,s,u;return t[66]!==i||t[67]!==_||t[68]!==e||t[69]!==s?(u=(0,Cw.jsxs)(`div`,{ref:i,"data-content-search-unit-key":_,children:[e,r,s]}),t[66]=i,t[67]=_,t[68]=e,t[69]=s,t[70]=u):u=t[70],u}}',
+].join("");
+
 const SUBAGENT_ACTIVITY_FIXTURE = [
 	"function Jb(e){let {sentAtMs:g,showTimestampWithoutActions:b,timestampHoverOnly:x}=e;return (0,Ih.jsx)(`span`,{className:J(`ms-1.5 flex h-full items-center`,x?`opacity-0 group-hover:opacity-100`:`opacity-0 group-focus-within:opacity-100 group-hover:opacity-100`),children:(0,Ih.jsx)(wh,{sentAtMs:g})})}",
 	"function Mh(e){let {message:n,sentAtMs:r,collapsedLineCount:i,alwaysShowActions:a,compactActions:o,hideActions:s,messageStatus:c,messageStatusIcon:l,messageReaction:u,leadingActions:d,hookStats:f,threadDetailLevel:p,referencesPriorConversation:m,reviewMode:h,pullRequestFixMode:g,autoResolveSync:_,hasExternalAttachments:v,commentCount:y,onEditMessage:b,threadId:x,turnId:S,cwd:C,hostId:w}=e,T=false;let q=false;return (0,Ih.jsx)(`div`,{className:J(`me-1 ms-1 flex items-center gap-2`,T?void 0:`opacity-0 group-focus-within:opacity-100 group-hover:opacity-100`),children:(0,Ih.jsx)(`span`,{className:`flex opacity-0 group-focus-within:opacity-100 group-hover:opacity-100`,children:(0,Ih.jsx)(wh,{sentAtMs:r})})})}",
@@ -45,6 +51,8 @@ const SUBAGENT_ACTIVITY_FIXTURE = [
 
 const LOCAL_CONVERSATION_TURN_FIXTURE =
 	"function renderLocalTurn(){let m={finalAssistantStartedAtMs:null,turnStartedAtMs:1700000000000,items:[]},h=false,Ke=null,Ne=null,Re=null,fe=false;let R=(0,Q.useMemo)(()=>{let e=h?Tr(m.items,Ke,Ne):m.items.filter(e=>e.type!==`subagent-activity`),t=ht(Re)?e.map(e=>{if(e.type!==`assistant-message`)return e;let t=Mn(e.content,Re);return t===e.content?e:{...e,content:t}}):e;return fe?Eo(t):t},[h,Ke,!1,!1,!1,be,fe,Ne,Re,p,m.items]);return R}";
+const MODERN_LOCAL_CONVERSATION_TURN_FIXTURE =
+	"function renderModernTurn(e){let t=(0,Q.c)(72),{turn:d,turnState:f}=e;let Ae={items:[{type:`agentMessage`,sentAtMs:null}]};let j=Ae,je;bb0:{if(Se.size===0){je=j;break bb0}je=j}return je}";
 const LOCAL_ASSISTANT_FIXTURE = SUBAGENT_ACTIVITY_FIXTURE;
 
 function renameIdentifiers(source, replacements) {
@@ -202,6 +210,16 @@ test("ChatGPT assistant timestamps use centered separator row", () => {
 	assert.equal(applyComposerControllerTimestampPatch(patched), patched);
 });
 
+test("ChatGPT assistant timestamps handle current cached renderer shape", () => {
+	const patched = applyComposerControllerTimestampPatch(
+		MODERN_COMPOSER_CONTROLLER_FIXTURE,
+	);
+
+	assert.match(patched, /children:\[e,r,s,d\.sentAtMs==null\?null/);
+	assert.match(patched, /showTimestampWithoutActions:!0,timestampHoverOnly:!1/);
+	assertSyntax(patched);
+});
+
 test("shared user timestamp renderer gets explicit visibility props", () => {
 	const patched = applySubagentActivityTimestampPatch(
 		SUBAGENT_ACTIVITY_FIXTURE,
@@ -246,6 +264,24 @@ test("local assistant timestamp data fills missing historical times", () => {
 		/codexLinuxAssistantTimestamp=m\.finalAssistantStartedAtMs\?\?m\.turnStartedAtMs\?\?null/,
 	);
 	assert.match(patched, /sentAtMs:codexLinuxAssistantTimestamp/);
+	assertSyntax(patched);
+	assert.equal(applyLocalAssistantDataPatch(patched), patched);
+});
+
+test("local assistant timestamp data handles current turn-state renderer shape", () => {
+	const patched = applyLocalAssistantDataPatch(
+		MODERN_LOCAL_CONVERSATION_TURN_FIXTURE,
+	);
+
+	assert.match(patched, /codexLinuxLocalAssistantTimestampData/);
+	assert.match(
+		patched,
+		/items:\$?\{?j\.items\.map\(e=>e\.type===`agentMessage`/,
+	);
+	assert.match(
+		patched,
+		/sentAtMs:d\.finalAssistantStartedAtMs\?\?d\.turnStartedAtMs\?\?null/,
+	);
 	assertSyntax(patched);
 	assert.equal(applyLocalAssistantDataPatch(patched), patched);
 });

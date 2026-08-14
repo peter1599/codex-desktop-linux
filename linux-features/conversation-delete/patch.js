@@ -123,12 +123,19 @@ function findSidebarContract(source) {
 		return null;
 	}
 
-	const renderGuardMatch = uniqueMatch(
-		block.text,
-		new RegExp(
-			`let (${JS_IDENT})=${JS_IDENT};if\\(!(${JS_IDENT})\\)return \\1;let ${JS_IDENT};return`,
-		),
-	);
+	const renderGuardMatch =
+		uniqueMatch(
+			block.text,
+			new RegExp(
+				`let (${JS_IDENT})=${JS_IDENT};if\\(!(${JS_IDENT})\\)return \\1;let ${JS_IDENT};return`,
+			),
+		) ??
+		uniqueMatch(
+			block.text,
+			new RegExp(
+				`let (${JS_IDENT})=${JS_IDENT};if\\(!(${JS_IDENT})&&${JS_IDENT}\\.length===0\\)return \\1;`,
+			),
+		);
 	const toastMatch = uniqueMatch(
 		block.text,
 		new RegExp(`(${JS_IDENT})\\.get\\((${JS_IDENT})\\)\\.info\\(`),

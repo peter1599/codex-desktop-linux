@@ -34,6 +34,11 @@ function renameIdentifiers(source, replacements) {
 	return renamed;
 }
 
+const CURRENT_SIDEBAR_FIXTURE = SIDEBAR_FIXTURE.replace(
+	"let ye=oe;if(!I)return ye;let be;return be",
+	"let ye=oe;if(!I&&z.length===0)return ye;let be;return be",
+);
+
 const RENAMED_SIDEBAR_FIXTURE = renameIdentifiers(SIDEBAR_FIXTURE, [
 	["SG", "localizationBundle"],
 	["aBr", "conversationFilter"],
@@ -171,6 +176,17 @@ test("discovers renamed minified aliases without hash coupling", () => {
 	assert.match(patched, /get\(conversationApiToken\)\.delete\(t\.id\)/);
 	assert.match(patched, /evictCaches\(e\.queryClient,/);
 	assert.match(patched, /id:`delete-chatgpt-conversation`/);
+});
+
+test("handles current sidebar empty-conversation guard", () => {
+	const patched = applyConversationDeletePatch(CURRENT_SIDEBAR_FIXTURE);
+
+	assert.notEqual(patched, CURRENT_SIDEBAR_FIXTURE);
+	assert.match(patched, /codexLinuxDeleteChatGptConversation/);
+	assert.match(
+		patched,
+		/if\(n!=null&&codexLinuxDeletedChatGptConversationIds\.has\(n\.id\)\)return null;if\(!I&&z\.length===0\)return ye/,
+	);
 });
 
 test("ambiguous semantic match leaves source unchanged and warns", () => {

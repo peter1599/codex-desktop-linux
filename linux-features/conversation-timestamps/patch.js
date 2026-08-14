@@ -11,6 +11,7 @@ const SUBAGENT_ACTIVITY_ASSET_PATTERN =
 	/^subagent-activity-chip-group-[A-Za-z0-9_-]+\.js$/;
 const LOCAL_CONVERSATION_TURN_ASSET_PATTERN =
 	/^local-conversation-(?:turn|thread)-[A-Za-z0-9_-]+\.js$/;
+const LOCAL_ASSISTANT_DATA_MARKER = "codexLinuxLocalAssistantTimestampData";
 
 function warn(message) {
 	console.warn(
@@ -142,17 +143,29 @@ function findComposerTimestampContract(source) {
 			`\\(0,(${JS_IDENT})\\.jsx\\)\\((${JS_IDENT}),\\{message:(${JS_IDENT})\\.message,sentAtMs:(${JS_IDENT})\\.sentAtMs,hasExternalAttachments:${JS_IDENT},hostId:${JS_IDENT},onEditMessage:${JS_IDENT},threadId:${JS_IDENT},turnId:${JS_IDENT}\\}\\)`,
 		),
 	);
-	const groupingMatch = uniqueMatch(
+	let groupingMatch = uniqueMatch(
 		source,
 		new RegExp(
 			`(${JS_IDENT})\\[(\\d+)\\]!==(${JS_IDENT})\\|\\|\\1\\[(\\d+)\\]!==(${JS_IDENT})\\|\\|\\1\\[(\\d+)\\]!==(${JS_IDENT})\\?\\((${JS_IDENT})=\\(0,(${JS_IDENT})\\.jsxs\\)\\(${BACKTICK}div${BACKTICK},\\{ref:\\3,"data-content-search-unit-key":\\5,children:\\[([\\s\\S]*?)\\]\\}\\),([\\s\\S]*?)\\):\\8=\\1\\[\\d+\\],\\8`,
 		),
 	);
+	if (groupingMatch == null) {
+		groupingMatch = uniqueMatch(
+			source,
+			new RegExp(
+				`(?<cache>${JS_IDENT})\\[\\d+\\]!==${JS_IDENT}(?:\\|\\|\\k<cache>\\[\\d+\\]!==${JS_IDENT})+\\?\\((?<render>${JS_IDENT})=\\(0,(?<jsx>${JS_IDENT})\\.jsxs\\)\\(${BACKTICK}div${BACKTICK},\\{ref:(?<ref>${JS_IDENT}),"data-content-search-unit-key":(?<key>${JS_IDENT}),children:\\[(?<children>[\\s\\S]*?)\\]\\}\\),[\\s\\S]*?\\):\\k<render>=\\k<cache>\\[\\d+\\],\\k<render>`,
+			),
+		);
+	}
 	if (
 		[assistantActionMatch, userActionMatch, groupingMatch].some(
 			(match) => match == null,
 		)
 	) {
+		return null;
+	}
+	const groupingChildren = groupingMatch.groups?.children ?? groupingMatch[10];
+	if (groupingChildren == null) {
 		return null;
 	}
 	const beforeGrouping = source.slice(0, groupingMatch.index);
@@ -168,7 +181,13 @@ function findComposerTimestampContract(source) {
 	if (itemAlias == null) {
 		return null;
 	}
-	return { assistantActionMatch, userActionMatch, groupingMatch, itemAlias };
+	return {
+		assistantActionMatch,
+		userActionMatch,
+		groupingMatch,
+		groupingChildren,
+		itemAlias,
+	};
 }
 
 function isComposerTimestampPatched(source) {
@@ -194,8 +213,13 @@ function applyComposerControllerTimestampPatch(source) {
 		warn("Could not find unique current ChatGPT timestamp visibility markers");
 		return source;
 	}
-	const { assistantActionMatch, userActionMatch, groupingMatch, itemAlias } =
-		contract;
+	const {
+		assistantActionMatch,
+		userActionMatch,
+		groupingMatch,
+		groupingChildren,
+		itemAlias,
+	} = contract;
 	const assistantRuntime = assistantActionMatch[1];
 	const assistantComponent = assistantActionMatch[2];
 	let patched = replaceMatch(
@@ -219,8 +243,8 @@ function applyComposerControllerTimestampPatch(source) {
 		patched,
 		groupingMatch,
 		groupingMatch[0].replace(
-			`children:[${groupingMatch[10]}]`,
-			`children:[${groupingMatch[10]},${separator}]`,
+			`children:[${groupingChildren}]`,
+			`children:[${groupingChildren},${separator}]`,
 		),
 	);
 	return isComposerTimestampPatched(patched) ? patched : source;
@@ -396,7 +420,37 @@ function applySubagentActivityTimestampPatch(source) {
 	return isUserTimestampPatched(patched) ? patched : source;
 }
 
+function findModernLocalAssistantDataContract(source) {
+	const turnMatch = uniqueMatch(
+		source,
+		new RegExp(`turn:(${JS_IDENT}),turnState:(${JS_IDENT})`),
+	);
+	const stateMatch = uniqueMatch(
+		source,
+		new RegExp(
+			`let (${JS_IDENT})=(${JS_IDENT}),(${JS_IDENT});bb0:\\{if\\((${JS_IDENT})\\.size===0\\)\\{\\3=\\1;break bb0\\}`,
+		),
+	);
+	if (turnMatch == null || stateMatch == null) {
+		return null;
+	}
+	return {
+		modern: true,
+		marker: LOCAL_ASSISTANT_DATA_MARKER,
+		turnAlias: turnMatch[1],
+		stateAlias: stateMatch[1],
+		normalizedAlias: stateMatch[2],
+		outputAlias: stateMatch[3],
+		stateMatch,
+	};
+}
+
 function findLocalAssistantDataContract(source) {
+	const modernContract = findModernLocalAssistantDataContract(source);
+	if (modernContract != null) {
+		return modernContract;
+	}
+
 	const stateObjectMatch = uniqueMatch(
 		source,
 		new RegExp(
@@ -428,14 +482,15 @@ function findLocalAssistantDataContract(source) {
 
 function isLocalAssistantDataPatched(source) {
 	return (
-		source.includes("codexLinuxAssistantTimestamp=") &&
-		source.includes("normalizedItems=") &&
-		uniqueMatch(
-			source,
-			new RegExp(
-				`return ${JS_IDENT}\\?${JS_IDENT}\\(normalizedItems\\):normalizedItems\\},\\[`,
-			),
-		) != null
+		source.includes(LOCAL_ASSISTANT_DATA_MARKER) ||
+		(source.includes("codexLinuxAssistantTimestamp=") &&
+			source.includes("normalizedItems=") &&
+			uniqueMatch(
+				source,
+				new RegExp(
+					`return ${JS_IDENT}\\?${JS_IDENT}\\(normalizedItems\\):normalizedItems\\},\\[`,
+				),
+			) != null)
 	);
 }
 
@@ -450,6 +505,19 @@ function applyLocalAssistantDataPatch(source) {
 		);
 		return source;
 	}
+	if (contract.modern === true) {
+		const { stateAlias, normalizedAlias, outputAlias, turnAlias, stateMatch } =
+			contract;
+		const originalDeclaration = `let ${stateAlias}=${normalizedAlias},${outputAlias};`;
+		const replacementDeclaration = `let ${stateAlias}=${normalizedAlias};${stateAlias}=${stateAlias}==null?${stateAlias}:{...${stateAlias},items:${stateAlias}.items.map(e=>e.type===${BACKTICK}agentMessage${BACKTICK}&&e.sentAtMs==null?{...e,sentAtMs:${turnAlias}.finalAssistantStartedAtMs??${turnAlias}.turnStartedAtMs??null}:e)};/*${LOCAL_ASSISTANT_DATA_MARKER}*/let ${outputAlias};`;
+		const replacement = stateMatch[0].replace(
+			originalDeclaration,
+			replacementDeclaration,
+		);
+		const patched = replaceMatch(source, stateMatch, replacement);
+		return isLocalAssistantDataPatched(patched) ? patched : source;
+	}
+
 	const { stateAlias, returnMatch } = contract;
 	const arrayAlias = returnMatch[3];
 	const replacement = `let codexLinuxAssistantTimestamp=${stateAlias}.finalAssistantStartedAtMs??${stateAlias}.turnStartedAtMs??null;let normalizedItems=codexLinuxAssistantTimestamp==null?${arrayAlias}:${arrayAlias}.map(e=>e.type===${BACKTICK}assistant-message${BACKTICK}&&e.sentAtMs==null?{...e,sentAtMs:codexLinuxAssistantTimestamp}:e);return ${returnMatch[1]}?${returnMatch[2]}(normalizedItems):normalizedItems},[`;
