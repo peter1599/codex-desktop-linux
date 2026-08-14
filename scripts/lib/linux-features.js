@@ -6,25 +6,17 @@ const path = require("node:path");
 const FEATURE_ID_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 const LOCAL_FEATURES_DIR = "local";
 const RESERVED_TOP_LEVEL_NAMES = new Set([
-	LOCAL_FEATURES_DIR,
-	"README.md",
-	"features.example.json",
-	"features.json",
+  LOCAL_FEATURES_DIR,
+  "README.md",
+  "features.example.json",
+  "features.json",
+  "compatibility.json",
 ]);
-const LEGACY_FEATURE_ID_ALIASES = new Map([
-	["zed-opener", "open-target-discovery"],
-]);
+const FEATURE_COMPATIBILITY = require("../../linux-features/compatibility.json");
+const LEGACY_FEATURE_ID_ALIASES = new Map(Object.entries(FEATURE_COMPATIBILITY.aliases));
 // Only explicitly retired ids are ignored. This lets a preserved local config
 // survive a removal without making typos or arbitrary unknown ids fail open.
-const RETIRED_FEATURE_IDS = new Set([
-	"codex-wrapper-updater",
-	"conversation-mode",
-	"deferred-update-build",
-	"example-feature",
-	"open-target-discovery",
-	"ssh-command-wrapper",
-	"x11-ewmh-computer-use",
-]);
+const RETIRED_FEATURE_IDS = new Set(FEATURE_COMPATIBILITY.retired);
 
 const RUNTIME_HOOK_DIRS = {
 	env: { dir: "env.d", executable: false },
