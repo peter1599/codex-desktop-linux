@@ -504,6 +504,16 @@ function applyConversationDeletePatch(source) {
 		if (source.includes(RUNTIME_MARKER)) {
 			return source;
 		}
+		// Official ChatGPT now owns this delete flow; avoid double-patching it.
+		if (
+			source.includes("id:`delete-chatgpt-conversation`,message:") &&
+			source.includes("onSelect:()=>{") &&
+			source.includes("deleteDialogTitle") &&
+			source.includes("deleteDialogDescription") &&
+			source.includes("deleteConversation")
+		) {
+			return source;
+		}
 
 		const contracts = discoverContracts(source);
 		if (contracts.missing.length > 0) {

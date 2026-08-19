@@ -13,7 +13,7 @@ const {
 const { patchUniqueAssetFile } = require("../../scripts/patches/lib/assets.js");
 const {
 	APP_INITIAL_ASSET_PATTERN,
-	COMPOSER_CONTROLLER_ASSET_PATTERN,
+	CHATGPT_THREAD_VISIBILITY_ASSET_PATTERN,
 	LOCAL_CONVERSATION_TURN_ASSET_PATTERN,
 	SUBAGENT_ACTIVITY_ASSET_PATTERN,
 	applyAppInitialTimestampPatch,
@@ -44,9 +44,15 @@ const MODERN_COMPOSER_CONTROLLER_FIXTURE = [
 
 const SUBAGENT_ACTIVITY_FIXTURE = [
 	"function Jb(e){let {sentAtMs:g,showTimestampWithoutActions:b,timestampHoverOnly:x}=e;return (0,Ih.jsx)(`span`,{className:J(`ms-1.5 flex h-full items-center`,x?`opacity-0 group-hover:opacity-100`:`opacity-0 group-focus-within:opacity-100 group-hover:opacity-100`),children:(0,Ih.jsx)(wh,{sentAtMs:g})})}",
-	"function Mh(e){let {message:n,sentAtMs:r,collapsedLineCount:i,alwaysShowActions:a,compactActions:o,hideActions:s,messageStatus:c,messageStatusIcon:l,messageReaction:u,leadingActions:d,hookStats:f,threadDetailLevel:p,referencesPriorConversation:m,reviewMode:h,pullRequestFixMode:g,autoResolveSync:_,hasExternalAttachments:v,commentCount:y,onEditMessage:b,threadId:x,turnId:S,cwd:C,hostId:w}=e,T=false;let q=false;return (0,Ih.jsx)(`div`,{className:J(`me-1 ms-1 flex items-center gap-2`,T?void 0:`opacity-0 group-focus-within:opacity-100 group-hover:opacity-100`),children:(0,Ih.jsx)(`span`,{className:`flex opacity-0 group-focus-within:opacity-100 group-hover:opacity-100`,children:(0,Ih.jsx)(wh,{sentAtMs:r})})})}",
+	"function Mh(e){let {message:n,sentAtMs:r,collapsedLineCount:i,alwaysShowActions:a,compactActions:o,hideActions:s,messageStatus:c,messageStatusIcon:l,messageReaction:u,hookStats:f,threadDetailLevel:p,referencesPriorConversation:m,reviewMode:h,pullRequestFixMode:g,autoResolveSync:_,hasExternalAttachments:v,commentCount:y,onEditMessage:b,threadId:x,turnId:S,cwd:C,hostId:w}=e,T=false;let q=false;return (0,Ih.jsx)(`div`,{className:J(`me-1 ms-1 flex items-center gap-2`,T?void 0:`opacity-0 group-focus-within:opacity-100 group-hover:opacity-100`),children:(0,Ih.jsx)(`span`,{className:`flex opacity-0 group-focus-within:opacity-100 group-hover:opacity-100`,children:(0,Ih.jsx)(wh,{sentAtMs:r})})})}",
 	"function renderLocalUser(){return (0,$.jsx)(Mh,{message:e,sentAtMs:n.sentAtMs,hostId:v,alwaysShowActions:w==null&&ne,compactActions:q,hideActions:le,})}",
 	"function renderLocalAssistant(e){let n=e.item,i;let action=(0,$.jsx)(Jb,{alwaysShowActions:!0,sentAtMs:n.sentAtMs,showTimestampWithoutActions:!1});switch(n.type){case`assistant-message`:{return e?(i=foo(),t[181]=i):i=t[181],i}case`generated-image`:return i;default:return null}}",
+].join("");
+
+const CURRENT_CHATGPT_THREAD_VISIBILITY_FIXTURE = [
+	"function renderThread(d){if(d.type===`assistant-message`){let e,r,l;t[67]!==i||t[68]!==_||t[69]!==e||t[70]!==l?(f=(0,hT.jsxs)(`div`,{ref:i,\"data-content-search-unit-key\":_,children:[e,r,l]}),t[67]=i,t[68]=_,t[69]=e,t[70]=l,t[71]=f):f=t[71],f}}",
+	"(0,hT.jsx)(kl,{alwaysShowActions:b,turnId:x,copyText:S,getCopyHtml:d,forkDisabled:C,forkLabel:w,isForking:T,sentAtMs:n.sentAtMs,threadId:s,hasArtifacts:a,additionalActions:E,onFork:D})",
+	"(0,hT.jsx)(ll,{message:d.message,sentAtMs:d.sentAtMs,hasExternalAttachments:C,hostId:c,onEditMessage:m,threadId:p,turnId:b})",
 ].join("");
 
 const LOCAL_CONVERSATION_TURN_FIXTURE =
@@ -217,6 +223,17 @@ test("ChatGPT assistant timestamps handle current cached renderer shape", () => 
 
 	assert.match(patched, /children:\[e,r,s,d\.sentAtMs==null\?null/);
 	assert.match(patched, /showTimestampWithoutActions:!0,timestampHoverOnly:!1/);
+	assertSyntax(patched);
+});
+
+test("current ChatGPT thread visibility bundle gets assistant timestamp separator", () => {
+	const patched = applyComposerControllerTimestampPatch(
+		CURRENT_CHATGPT_THREAD_VISIBILITY_FIXTURE,
+	);
+
+	assert.notEqual(patched, CURRENT_CHATGPT_THREAD_VISIBILITY_FIXTURE);
+	assert.match(patched, /flex w-full justify-center/);
+	assert.match(patched, /d\.sentAtMs==null\?null/);
 	assertSyntax(patched);
 });
 
@@ -427,8 +444,8 @@ test("descriptors discover bundles without hash pinning", () => {
 	);
 	assert.equal(APP_INITIAL_ASSET_PATTERN.test("app-main-Biw83Aiz.js"), false);
 	assert.equal(
-		COMPOSER_CONTROLLER_ASSET_PATTERN.test(
-			"use-chatgpt-composer-controller-renamed.js",
+		CHATGPT_THREAD_VISIBILITY_ASSET_PATTERN.test(
+			"chatgpt-thread-visibility-renamed.js",
 		),
 		true,
 	);
@@ -458,7 +475,7 @@ test("descriptors discover bundles without hash pinning", () => {
 		const fixtures = [
 			["app-initial-BYOVlUBL.js", APP_INITIAL_FIXTURE, descriptors[0]],
 			[
-				"use-chatgpt-composer-controller-Dukh57hy.js",
+				"chatgpt-thread-visibility-Dukh57hy.js",
 				COMPOSER_CONTROLLER_FIXTURE,
 				descriptors[1],
 			],

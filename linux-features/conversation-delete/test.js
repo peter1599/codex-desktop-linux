@@ -39,6 +39,12 @@ const CURRENT_SIDEBAR_FIXTURE = SIDEBAR_FIXTURE.replace(
 	"let ye=oe;if(!I&&z.length===0)return ye;let be;return be",
 );
 
+const UPSTREAM_DELETE_FIXTURE = [
+	"var lA={archive:{id:`chatgptConversations.sidebar.archive`,defaultMessage:`Archive chat`,description:`Action label to archive a ChatGPT conversation in the sidebar`}};",
+	"function currentDelete(){return[{id:`delete-chatgpt-conversation`,message:lA.delete,onSelect:()=>{k(!0)}}]}",
+	"deleteDialogTitle,deleteDialogDescription,deleteConversation",
+].join("");
+
 const RENAMED_SIDEBAR_FIXTURE = renameIdentifiers(SIDEBAR_FIXTURE, [
 	["SG", "localizationBundle"],
 	["aBr", "conversationFilter"],
@@ -167,6 +173,15 @@ test("patch adds confirmed delete action and is idempotent", () => {
 	);
 	assert.match(patched, /O=LC\(\)/);
 	assert.equal(applyConversationDeletePatch(patched), patched);
+});
+
+test("leaves upstream-owned delete flow unchanged", () => {
+	const { value, warnings } = captureWarnings(() =>
+		applyConversationDeletePatch(UPSTREAM_DELETE_FIXTURE),
+	);
+
+	assert.equal(value, UPSTREAM_DELETE_FIXTURE);
+	assert.deepEqual(warnings, []);
 });
 
 test("discovers renamed minified aliases without hash coupling", () => {

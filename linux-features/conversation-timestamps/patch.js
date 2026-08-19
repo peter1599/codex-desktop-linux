@@ -5,8 +5,7 @@ const {
 const JS_IDENT = "[A-Za-z_$][\\w$]*";
 const BACKTICK = "`";
 const APP_INITIAL_ASSET_PATTERN = /^app-initial-[A-Za-z0-9_-]+\.js$/;
-const COMPOSER_CONTROLLER_ASSET_PATTERN =
-	/^use-chatgpt-composer-controller-[A-Za-z0-9_-]+\.js$/;
+const CHATGPT_THREAD_VISIBILITY_ASSET_PATTERN = /^chatgpt-thread-visibility-[A-Za-z0-9_-]+\.js$/;
 const SUBAGENT_ACTIVITY_ASSET_PATTERN =
 	/^subagent-activity-chip-group-[A-Za-z0-9_-]+\.js$/;
 const LOCAL_CONVERSATION_TURN_ASSET_PATTERN =
@@ -254,7 +253,7 @@ function findUserTimestampContract(source) {
 	const propsMatch = uniqueMatch(
 		source,
 		new RegExp(
-			`\\{message:${JS_IDENT},sentAtMs:${JS_IDENT},collapsedLineCount:${JS_IDENT},alwaysShowActions:${JS_IDENT},compactActions:${JS_IDENT},hideActions:${JS_IDENT},messageStatus:${JS_IDENT},messageStatusIcon:${JS_IDENT},messageReaction:${JS_IDENT},leadingActions:${JS_IDENT},hookStats:${JS_IDENT},threadDetailLevel:${JS_IDENT},referencesPriorConversation:${JS_IDENT},reviewMode:${JS_IDENT},pullRequestFixMode:${JS_IDENT},autoResolveSync:${JS_IDENT},hasExternalAttachments:${JS_IDENT},commentCount:${JS_IDENT},onEditMessage:${JS_IDENT},threadId:${JS_IDENT},turnId:${JS_IDENT},cwd:${JS_IDENT},hostId:(${JS_IDENT})\\}=(${JS_IDENT}),`,
+			`\\{message:${JS_IDENT},sentAtMs:${JS_IDENT},collapsedLineCount:${JS_IDENT},alwaysShowActions:${JS_IDENT},compactActions:${JS_IDENT},hideActions:${JS_IDENT},messageStatus:${JS_IDENT},messageStatusIcon:${JS_IDENT},messageReaction:${JS_IDENT},(?:leadingActions:${JS_IDENT},)?hookStats:${JS_IDENT},threadDetailLevel:${JS_IDENT},referencesPriorConversation:${JS_IDENT},reviewMode:${JS_IDENT},pullRequestFixMode:${JS_IDENT},autoResolveSync:${JS_IDENT},hasExternalAttachments:${JS_IDENT},commentCount:${JS_IDENT},onEditMessage:${JS_IDENT},threadId:${JS_IDENT},turnId:${JS_IDENT},cwd:${JS_IDENT},hostId:(${JS_IDENT})\\}=(${JS_IDENT}),`,
 		),
 	);
 	const rowMatch = uniqueMatch(
@@ -660,7 +659,7 @@ const descriptors = [
 		phase: "webview-asset",
 		order: 20_921,
 		ciPolicy: "optional",
-		pattern: COMPOSER_CONTROLLER_ASSET_PATTERN,
+		pattern: CHATGPT_THREAD_VISIBILITY_ASSET_PATTERN,
 		assetMatch: matchesComposerTimestampAsset,
 		missingDescription: "ChatGPT conversation renderer bundle",
 		skipDescription: "ChatGPT assistant timestamp separator patch",
@@ -703,7 +702,7 @@ const descriptors = [
 
 module.exports = {
 	APP_INITIAL_ASSET_PATTERN,
-	COMPOSER_CONTROLLER_ASSET_PATTERN,
+	CHATGPT_THREAD_VISIBILITY_ASSET_PATTERN,
 	LOCAL_CONVERSATION_TURN_ASSET_PATTERN,
 	SUBAGENT_ACTIVITY_ASSET_PATTERN,
 	applyAppInitialTimestampPatch,
