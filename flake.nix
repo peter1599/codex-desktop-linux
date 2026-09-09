@@ -553,12 +553,12 @@
               makeWrapper "${nixRuntimeLauncher}" "$out/bin/codex-desktop" \
                 --prefix PATH : "${runtimePathFor effectiveFeatureIds}" \
                 --set-default ALSA_PLUGIN_DIR "${pkgs.pipewire}/lib/alsa-lib" \
+                --set-default CODEX_OZONE_PLATFORM x11 \
                 --run 'export XDG_DATA_DIRS="''${XDG_DATA_DIRS:-${xdgDefaultDataDirs}}"' \
                 --prefix XDG_DATA_DIRS : "${gsettingsSchemaDataDirs}" \
                 --set-default BAMF_DESKTOP_FILE_HINT "$out/share/applications/codex-desktop.desktop" \
                 --set-default CODEX_CLI_PATH "$app/resources/codex" \
-                --add-flags "$app/start.sh" \
-                --add-flags "\''${NIXOS_OZONE_WL:+\''${WAYLAND_DISPLAY:+--ozone-platform=wayland --enable-wayland-ime=true --wayland-text-input-version=3}}"
+                --add-flags "$app/start.sh"
               node "$source_dir/nix/elf-runtime.cjs" audit \
                 --root "$app" \
                 --arch ${officialPackage.architecture} \
@@ -611,16 +611,9 @@
           export XDG_DATA_DIRS="${gsettingsSchemaDataDirs}:''${XDG_DATA_DIRS:-${xdgDefaultDataDirs}}"
           export CODEX_CLI_PATH="''${CODEX_CLI_PATH:-$app_dir/resources/codex}"
           export BAMF_DESKTOP_FILE_HINT="''${BAMF_DESKTOP_FILE_HINT:-$app_dir/.codex-linux/codex-desktop.desktop}"
-          extra_flags=()
-          if [[ -n "''${NIXOS_OZONE_WL-}" && -n "''${WAYLAND_DISPLAY-}" ]]; then
-            extra_flags+=(
-              --ozone-platform=wayland
-              --enable-wayland-ime=true
-              --wayland-text-input-version=3
-            )
-          fi
+          export CODEX_OZONE_PLATFORM="''${CODEX_OZONE_PLATFORM:-x11}"
           exec ${nixRuntimeLauncher} \
-            "$app_dir/.start.sh-nix" "$@" "''${extra_flags[@]}"
+            "$app_dir/.start.sh-nix" "$@"
         '';
         installerWorkspaceHelpers = mkWorkspaceHelpers maximalDirectoryFeatureIds;
         installerRuntimeClosure = pkgs.writeText "codex-desktop-installer-runtime-closure" (
@@ -847,6 +840,7 @@
                 printf 'bwrap=%s\n' "$(command -v bwrap || true)"
                 printf 'ld=%s:%s\n' "''${LD_LIBRARY_PATH+x}" "''${LD_LIBRARY_PATH-}"
                 printf 'bamf=%s\n' "''${BAMF_DESKTOP_FILE_HINT-}"
+                printf 'ozone=%s\n' "''${CODEX_OZONE_PLATFORM-}"
                 printf 'args='
                 printf '<%s>' "$@"
                 printf '\n'
@@ -871,6 +865,7 @@
             "$capture"
           ${pkgs.gnugrep}/bin/grep -Fx 'ld=:' "$capture"
           ${pkgs.gnugrep}/bin/grep -Fx 'bamf=${package}/share/applications/codex-desktop.desktop' "$capture"
+          ${pkgs.gnugrep}/bin/grep -Fx 'ozone=x11' "$capture"
           ${pkgs.gnugrep}/bin/grep -Fx 'args=<--diagnose>' "$capture"
           ${pkgs.coreutils}/bin/env -u WAYLAND_DISPLAY NIXOS_OZONE_WL=1 \
             BASH_ENV=${wrapperEnvironmentProbe} CODEX_NIX_ENV_CAPTURE="$capture" \
@@ -890,9 +885,7 @@
             'path=${lib.optionalString expectNixBwrap "${nixosBwrap}/bin:"}${runtimePathFor package.passthru.effectiveLinuxFeatureIds}:/caller/bin' \
             "$capture"
           ${pkgs.gnugrep}/bin/grep -Fx 'ld=x:/caller/lib' "$capture"
-          ${pkgs.gnugrep}/bin/grep -Fx \
-            'args=<--ozone-platform=wayland><--enable-wayland-ime=true><--wayland-text-input-version=3><--diagnose>' \
-            "$capture"
+          ${pkgs.gnugrep}/bin/grep -Fx 'args=<--diagnose>' "$capture"
           ${pkgs.coreutils}/bin/env ALSA_PLUGIN_DIR=/caller/alsa XDG_DATA_DIRS=/caller/share \
             BAMF_DESKTOP_FILE_HINT=/caller/desktop LD_LIBRARY_PATH= \
             BASH_ENV=${wrapperEnvironmentProbe} CODEX_NIX_ENV_CAPTURE="$capture" \
@@ -986,7 +979,7 @@
             CODEX_CUA_NODE_PATH="$app/resources/cua_node/bin/node" \
               NODE_PATH="$app/resources/cua_node/lib/node_modules" \
               timeout 20 "$app/resources/cua_node/bin/node" -e \
-                "require('sharp'); require('@napi-rs/canvas'); if (process.execPath !== process.env.CODEX_CUA_NODE_PATH) throw new Error('unexpected process.execPath')"
+                "require('sharp'); if (process.execPath !== process.env.CODEX_CUA_NODE_PATH) throw new Error('unexpected process.execPath')"
             timeout 10 "$app/${officialRuntimePaths.sky}" --help >/dev/null
             timeout 10 "$app/${officialRuntimePaths.extensionHost}" --help >/dev/null
             "$app/resources/rg" --version

@@ -9,15 +9,32 @@ const test = require("node:test");
 
 const repoRoot = path.resolve(__dirname, "../..");
 
-function runPackageCommon(script, appDir) {
+function runPackageCommon(script, appDir, sourceRoot = repoRoot) {
   return childProcess.execFileSync("bash", ["-c", [
     "set -euo pipefail",
-    `REPO_DIR=${JSON.stringify(repoRoot)}`,
+    `REPO_DIR=${JSON.stringify(sourceRoot)}`,
     `APP_DIR=${JSON.stringify(appDir)}`,
     `. ${JSON.stringify(path.join(repoRoot, "scripts/lib/package-common.sh"))}`,
     script,
   ].join("\n")], { encoding: "utf8" });
 }
+
+test("updater binary source recovers the Linux deleted-path marker", (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "codex-updater-deleted-path-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const sourceRoot = path.join(root, "minimal-update-builder");
+  const updater = path.join(root, "codex-update-manager");
+  fs.mkdirSync(sourceRoot, { recursive: true });
+  fs.writeFileSync(updater, "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+
+  const output = runPackageCommon([
+    `UPDATER_BINARY_SOURCE=${JSON.stringify(`${updater} (deleted)`)}`,
+    "ensure_updater_binary",
+    'printf "%s\\n" "$UPDATER_BINARY_SOURCE"',
+  ].join("\n"), root, sourceRoot);
+
+  assert.equal(output, `${updater}\n`);
+});
 
 test("package metadata is read from the staged official Linux control file", (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "codex-package-common-"));
@@ -202,6 +219,31 @@ test("update-builder carries the shared feature compatibility registry", (t) => 
       },
     ),
     "",
+  );
+});
+
+test("update-builder stages the attached CLI resource", (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "codex-update-builder-attached-cli-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const config = path.join(root, "features.json");
+  const builder = path.join(root, "builder");
+  fs.writeFileSync(config, `${JSON.stringify({ enabled: ["shared-app-server-socket"] })}\n`);
+
+  runPackageCommon(
+    `CODEX_LINUX_FEATURES_CONFIG=${JSON.stringify(config)} stage_update_builder_linux_features_tree ${JSON.stringify(builder)}\n` +
+      `CODEX_LINUX_FEATURES_CONFIG=${JSON.stringify(config)} stage_update_builder_linux_features_config ${JSON.stringify(builder)}`,
+    root,
+  );
+
+  const staged = path.join(
+    builder,
+    "linux-features/shared-app-server-socket/attached-cli.sh",
+  );
+  assert.equal(fs.lstatSync(staged).isFile(), true);
+  assert.equal(fs.statSync(staged).mode & 0o777, 0o755);
+  assert.deepEqual(
+    JSON.parse(fs.readFileSync(path.join(builder, "linux-features/features.json"), "utf8")),
+    { enabled: ["shared-app-server-socket"] },
   );
 });
 
